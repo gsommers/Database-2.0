@@ -21,17 +21,6 @@
 			OnInitialized();
 		}
 
-        public void UpdateZoom(float zoom)
-        {
-            _map.Zoom = (int)zoom;
-            var count = _activeTiles.Count;
-            for (int i = count - 1; i >= 0; i--)
-            {
-                var tile = _activeTiles[i];
-                RemoveTile(tile);
-            }
-        }
-
         protected void AddTile(UnwrappedTileId tile)
 		{
 			if (_activeTiles.Contains(tile))

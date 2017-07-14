@@ -6,6 +6,7 @@
     using Utils;
     using UnityEngine;
     using Mapbox.Map;
+    using UnityEngine.UI;
 
     // TODO: make abstract! For example: MapFromFile, MapFromLocationProvider, etc.
     public class ZoomAndPan : MonoBehaviour, IMap
@@ -27,6 +28,7 @@
             }
         }
 
+        public Slider zoomSlide;
         [SerializeField]
         Transform _root;
         public Transform Root
@@ -38,7 +40,7 @@
         }
 
         [SerializeField]
-        AbstractTileProvider _tileProvider;
+        CameraBoundsTileProvider _tileProvider;
 
         [SerializeField]
         MapVisualizer _mapVisualizer;
@@ -82,9 +84,44 @@
 
         public event Action OnInitialized = delegate { };
 
-        protected virtual void Awake()
+        [SerializeField]
+        Examples.ForwardGeocodeUserInput _searchLocation;
+
+        [Geocode]
+        [SerializeField]
+        string _latLon;
+
+        void OnDestroy()
         {
-            _fileSouce = MapboxAccess.Instance;
+            if (_searchLocation != null)
+            {
+                _searchLocation.OnGeocoderResponse -= SearchLocation_OnGeocoderResponse;
+            }
+        } 
+
+
+        /// <summary>
+        /// New search location has become available, begin a new _map query.
+        /// </summary>
+        /// <param name="sender">Sender.</param>
+        /// <param name="e">E.</param>
+        void SearchLocation_OnGeocoderResponse(object sender, EventArgs e)
+        {
+            if (_mapCenterLatitudeLongitude.Equals(_searchLocation.Coordinate))
+            {
+                Debug.Log("Same");
+                return;
+            }
+            _mapCenterLatitudeLongitude = _searchLocation.Coordinate;
+            Debug.Log(_searchLocation.Coordinate + " search");
+            SlideZoom(zoomSlide.value);
+        }
+
+    protected virtual void Awake()
+        {
+          if (_searchLocation != null)
+        _searchLocation.OnGeocoderResponse += SearchLocation_OnGeocoderResponse;
+        _fileSouce = MapboxAccess.Instance;
             _tileProvider.OnTileAdded += TileProvider_OnTileAdded;
             _tileProvider.OnTileRemoved += TileProvider_OnTileRemoved;
             if (!_root)
@@ -93,7 +130,7 @@
             }
         }
 
-        protected virtual void OnDestroy()
+        /*protected virtual void OnDestroy()
         {
             if (_tileProvider != null)
             {
@@ -102,7 +139,7 @@
             }
 
             _mapVisualizer.Destroy();
-        }
+        }*/
 
         // This is the part that is abstract?
         protected virtual void Start()
@@ -131,8 +168,17 @@
         {
             Zoom = (int)slider;
             _tileProvider.UpdateZoom(slider);
+            // Debug.Log(_mapCenterLatitudeLongitude + " zoom");
             Setup();
+            // Debug.Log(_mapCenterLatitudeLongitude + " setup");
             
+        }
+
+        public void SetCenter(Vector2d coords)
+        {
+            _mapCenterLatitudeLongitude = coords;
+            // Debug.Log(_mapCenterMercator);
+            // Debug.Log(_mapCenterLatitudeLongitude + " center");
         }
 
         void TileProvider_OnTileAdded(UnwrappedTileId tileId)
