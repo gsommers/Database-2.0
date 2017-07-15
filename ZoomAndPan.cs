@@ -7,6 +7,7 @@
     using UnityEngine;
     using Mapbox.Map;
     using UnityEngine.UI;
+    using System.Collections;
 
     // TODO: make abstract! For example: MapFromFile, MapFromLocationProvider, etc.
     public class ZoomAndPan : MonoBehaviour, IMap
@@ -97,8 +98,10 @@
             {
                 _searchLocation.OnGeocoderResponse -= SearchLocation_OnGeocoderResponse;
             }
-        } 
+        }
 
+        public float zoomWait;
+        private float elapsedTime = 0;
 
         /// <summary>
         /// New search location has become available, begin a new _map query.
@@ -114,7 +117,7 @@
             }
             _mapCenterLatitudeLongitude = _searchLocation.Coordinate;
             Debug.Log(_searchLocation.Coordinate + " search");
-            SlideZoom(zoomSlide.value);
+            SlideZoom();
         }
 
     protected virtual void Awake()
@@ -164,11 +167,32 @@
             OnInitialized();
         }
 
-        public void SlideZoom(float slider)
+       void Update()
         {
-            Zoom = (int)slider;
-            _tileProvider.UpdateZoom(slider);
+            elapsedTime += Time.deltaTime;
+            if (elapsedTime > zoomWait)
+            {
+                elapsedTime = 0;
+                if (Input.GetKey(KeyCode.UpArrow))
+                {
+                    zoomSlide.value++;
+                    SlideZoom();
+                }
+
+                else if (Input.GetKey(KeyCode.DownArrow))
+                {
+                    zoomSlide.value--;
+                    SlideZoom();
+                }
+            }
+        }
+
+        public void SlideZoom()
+        {
+            zoomSlide.value = Mathf.Clamp(zoomSlide.value, 5, 18);
+            _tileProvider.UpdateZoom(zoomSlide.value);
             // Debug.Log(_mapCenterLatitudeLongitude + " zoom");
+            Zoom = (int)zoomSlide.value;
             Setup();
             // Debug.Log(_mapCenterLatitudeLongitude + " setup");
             
@@ -178,7 +202,7 @@
         {
             _mapCenterLatitudeLongitude = coords;
             // Debug.Log(_mapCenterMercator);
-            // Debug.Log(_mapCenterLatitudeLongitude + " center");
+            Debug.Log(_mapCenterLatitudeLongitude + " center");
         }
 
         void TileProvider_OnTileAdded(UnwrappedTileId tileId)
