@@ -8,6 +8,7 @@
     using Mapbox.Map;
     using UnityEngine.UI;
     using System.Collections;
+    using Mapbox.Examples;
 
     // TODO: make abstract! For example: MapFromFile, MapFromLocationProvider, etc.
     public class ZoomAndPan : MonoBehaviour, IMap
@@ -117,6 +118,7 @@
             }
             _mapCenterLatitudeLongitude = _searchLocation.Coordinate;
             Debug.Log(_searchLocation.Coordinate + " search");
+            zoomSlide.value = (zoomSlide.value == 15) ? 14 : 15;
             SlideZoom();
         }
 
@@ -173,13 +175,13 @@
             if (elapsedTime > zoomWait)
             {
                 elapsedTime = 0;
-                if (Input.GetKey(KeyCode.UpArrow))
+                if (Input.GetKey(KeyCode.UpArrow) && zoomSlide.value < 18)
                 {
                     zoomSlide.value++;
                     SlideZoom();
                 }
 
-                else if (Input.GetKey(KeyCode.DownArrow))
+                else if (Input.GetKey(KeyCode.DownArrow) && zoomSlide.value > 5)
                 {
                     zoomSlide.value--;
                     SlideZoom();
@@ -189,20 +191,21 @@
 
         public void SlideZoom()
         {
-            zoomSlide.value = Mathf.Clamp(zoomSlide.value, 5, 18);
+            Zoom = (int)zoomSlide.value;
             _tileProvider.UpdateZoom(zoomSlide.value);
             // Debug.Log(_mapCenterLatitudeLongitude + " zoom");
-            Zoom = (int)zoomSlide.value;
+            
             Setup();
             // Debug.Log(_mapCenterLatitudeLongitude + " setup");
             
         }
 
-        public void SetCenter(Vector2d coords)
+        public void SetCenter(Vector2d center)
         {
-            _mapCenterLatitudeLongitude = coords;
+            _mapCenterLatitudeLongitude = center;
             // Debug.Log(_mapCenterMercator);
-            Debug.Log(_mapCenterLatitudeLongitude + " center");
+            Debug.Log(_mapCenterLatitudeLongitude);
+            
         }
 
         void TileProvider_OnTileAdded(UnwrappedTileId tileId)

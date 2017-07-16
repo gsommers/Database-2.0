@@ -22,8 +22,21 @@ namespace Mapbox.Unity.Map
 		[SerializeField]
 		int _disposeBuffer;
 
-		[SerializeField]
-		float _updateInterval;
+        [SerializeField]
+        float _updateInterval;
+
+        bool shouldMove; // change coordinate of center if user finished dragging
+        public bool ShouldMove
+        {
+            get
+            {
+                return shouldMove;
+            }
+            set
+            {
+                shouldMove = value;
+            }
+        }
 
 		Plane _groundPlane;
 		Ray _ray;
@@ -57,10 +70,17 @@ namespace Mapbox.Unity.Map
                
                 if (_groundPlane.Raycast(_ray, out _hitDistance))
                 {
-                    _currentLatitudeLongitude = _ray.GetPoint(_hitDistance).GetGeoPosition(_map.CenterMercator, _map.WorldRelativeScale); // is this correct??
-                                                                                                                                          // _currentLatitudeLongitude = _camera.ScreenToWorldPoint(new Vector3(512, 384, 0)).GetGeoPosition(_map.CenterMercator, _map.WorldRelativeScale);
+                    //_currentLatitudeLongitude = zoompan.CenterLatitudeLongitude;
+                    _currentLatitudeLongitude = _ray.GetPoint(_hitDistance).GetGeoPosition(_map.CenterMercator, _map.WorldRelativeScale);
+                    // Debug.Log(_currentLatitudeLongitude);
+                    // _currentLatitudeLongitude = _camera.ScreenToWorldPoint(new Vector3(512, 384, 0)).GetGeoPosition(_map.CenterMercator, _map.WorldRelativeScale);
+                    // Debug.Log(_camera.ScreenPointToRay(Input.mousePosition).GetPoint(60).GetGeoPosition(_map.CenterMercator, _map.WorldRelativeScale) + " " + _currentLatitudeLongitude);
                     
-                    zoompan.SetCenter(_currentLatitudeLongitude);
+                    if (shouldMove)
+                    {
+                        zoompan.SetCenter(_currentLatitudeLongitude);
+                        shouldMove = false;
+                    }
                     _currentTile = TileCover.CoordinateToTileId(_currentLatitudeLongitude, _map.Zoom);
 
                     if (!_currentTile.Equals(_cachedTile))
@@ -82,6 +102,7 @@ namespace Mapbox.Unity.Map
                 yield return new WaitForSeconds(_updateInterval);
             }
 		}
+
 
         public Vector2d UpdateZoom(float zoom)
         {
