@@ -8,15 +8,28 @@
     using Mapbox.Map;
     using UnityEngine.UI;
     using System.Collections;
+    using Mapbox.Examples;
+    using Mapbox.Json;
+    using Mapbox.Utils.JsonConverters;
+    using TMPro;
 
     // TODO: make abstract! For example: MapFromFile, MapFromLocationProvider, etc.
     public class ZoomAndPan : MonoBehaviour, IMap
     {
+        [SerializeField]
+        ReverseGeocodeInput rev; // used to convert from coordinates to place name
+
+        [SerializeField]
+        TextMeshProUGUI centerText; // displays current location
+
         [Geocode]
         [SerializeField]
-        string _latitudeLongitudeString;
+        string _latitudeLongitudeString; // search location in longlat
 
-        int _zoom;
+        [SerializeField]
+        Raycasting rayCastScript; // handles user clicks
+
+        int _zoom; // zoom level (level of detail) of this map
         public int Zoom
         {
             get
@@ -29,7 +42,9 @@
             }
         }
 
-        public Slider zoomSlide;
+        public Slider zoomSlide; // shows the zoom level on a sliding scale
+
+        // not exactly sure what this does
         [SerializeField]
         Transform _root;
         public Transform Root
@@ -41,17 +56,17 @@
         }
 
         [SerializeField]
-        CameraBoundsTileProvider _tileProvider;
+        CameraBounds _tileProvider; // generates tiles
 
         [SerializeField]
-        MapVisualizer _mapVisualizer;
+        MapVisualizer _mapVisualizer; // renders the actual map style
 
         [SerializeField]
-        float _unityTileSize = 100;
+        float _unityTileSize;
 
         MapboxAccess _fileSouce;
 
-        Vector2d _mapCenterLatitudeLongitude;
+        Vector2d _mapCenterLatitudeLongitude; // current center of map
         public Vector2d CenterLatitudeLongitude
         {
             get
@@ -62,10 +77,11 @@
             {
                 _latitudeLongitudeString = string.Format("{0}, {1}", value.x, value.y);
                 _mapCenterLatitudeLongitude = value;
+                rev.InputCoords(_mapCenterLatitudeLongitude);
             }
         }
 
-        Vector2d _mapCenterMercator;
+        Vector2d _mapCenterMercator; // center in Mercator projection (weird)
         public Vector2d CenterMercator
         {
             get
@@ -74,6 +90,7 @@
             }
         }
 
+        // scale of map to real world size
         float _worldRelativeScale;
         public float WorldRelativeScale
         {
@@ -85,13 +102,30 @@
 
         public event Action OnInitialized = delegate { };
 
-        [SerializeField]
-        Examples.ForwardGeocodeUserInput _searchLocation;
 
-        [Geocode]
         [SerializeField]
-        string _latLon;
+        Examples.ForwardGeocodeUserInput _searchLocation; // entered by user in "search location" field
 
+        [SerializeField]
+        Button zoomIn, zoomOut; // buttons for adjusting zoom level
+
+        protected virtual void Awake()
+        {
+            // set up search location input system
+            if (_searchLocation != null)
+                _searchLocation.OnGeocoderResponse += SearchLocation_OnGeocoderResponse;
+
+            // set up tile generation
+            _fileSouce = MapboxAccess.Instance; // what's this?
+            _tileProvider.OnTileAdded += TileProvider_OnTileAdded;
+            _tileProvider.OnTileRemoved += TileProvider_OnTileRemoved;
+            if (!_root)
+            {
+                _root = transform;
+            }
+        }
+
+        // do I need this?
         void OnDestroy()
         {
             if (_searchLocation != null)
@@ -100,9 +134,6 @@
             }
         }
 
-        public float zoomWait;
-        private float elapsedTime = 0;
-
         /// <summary>
         /// New search location has become available, begin a new _map query.
         /// </summary>
@@ -110,27 +141,21 @@
         /// <param name="e">E.</param>
         void SearchLocation_OnGeocoderResponse(object sender, EventArgs e)
         {
+            // you're already there
             if (_mapCenterLatitudeLongitude.Equals(_searchLocation.Coordinate))
             {
                 Debug.Log("Same");
                 return;
             }
-            _mapCenterLatitudeLongitude = _searchLocation.Coordinate;
-            Debug.Log(_searchLocation.Coordinate + " search");
-            SlideZoom();
-        }
+            CenterLatitudeLongitude = _searchLocation.Coordinate;
 
-    protected virtual void Awake()
-        {
-          if (_searchLocation != null)
-        _searchLocation.OnGeocoderResponse += SearchLocation_OnGeocoderResponse;
-        _fileSouce = MapboxAccess.Instance;
-            _tileProvider.OnTileAdded += TileProvider_OnTileAdded;
-            _tileProvider.OnTileRemoved += TileProvider_OnTileRemoved;
-            if (!_root)
-            {
-                _root = transform;
-            }
+            // kind of a hack, don't want the exact same zoom level
+            zoomSlide.value = (zoomSlide.value == 12) ? 13 : 12;
+
+            // able to zoom in and out
+            zoomOut.interactable = true;
+            zoomIn.interactable = true;
+            SlideZoom();
         }
 
         /*protected virtual void OnDestroy()
@@ -147,69 +172,82 @@
         // This is the part that is abstract?
         protected virtual void Start()
         {
+            // initialize map
             var latLonSplit = _latitudeLongitudeString.Split(',');
             _mapCenterLatitudeLongitude = new Vector2d(double.Parse(latLonSplit[0]), double.Parse(latLonSplit[1]));
-            Zoom = 5;
-            Setup();
+            Setup((int)zoomSlide.minValue);
         }
 
-        void Setup()
+        void Setup(int zoom)
         {
+            _mapVisualizer.Initialize(this, _fileSouce);
+
+            Zoom = zoom;
+            // set center
             var referenceTileRect = Conversions.TileBounds(TileCover.CoordinateToTileId(_mapCenterLatitudeLongitude, _zoom));
             _mapCenterMercator = referenceTileRect.Center;
 
+            // set scale
             _worldRelativeScale = (float)(_unityTileSize / referenceTileRect.Size.x);
             Root.localScale = Vector3.one * _worldRelativeScale;
 
-            _mapVisualizer.Initialize(this, _fileSouce);
+            // where the tiles come from
             _tileProvider.Initialize(this);
 
+            // this is a delegate
             OnInitialized();
         }
 
-       void Update()
+        // called when user clicks + button
+        public void ZoomIn()
         {
-            elapsedTime += Time.deltaTime;
-            if (elapsedTime > zoomWait)
-            {
-                elapsedTime = 0;
-                if (Input.GetKey(KeyCode.UpArrow))
-                {
-                    zoomSlide.value++;
-                    SlideZoom();
-                }
-
-                else if (Input.GetKey(KeyCode.DownArrow))
-                {
-                    zoomSlide.value--;
-                    SlideZoom();
-                }
-            }
+            zoomSlide.value++;
+            zoomOut.interactable = true;
+            SlideZoom();
+            if (zoomSlide.value == zoomSlide.maxValue) // fully zoomed, can't zoom anymore
+                zoomIn.interactable = false;
         }
 
+        // called when user clicks - button
+        public void ZoomOut()
+        {
+            zoomSlide.value--;
+            zoomIn.interactable = true;
+            SlideZoom();
+            if (zoomSlide.value == zoomSlide.minValue) // fully zoomed out, can't zoom out anymore
+                zoomOut.interactable = false;
+
+        }
+
+        // reinitialize map when zoom level changes
         public void SlideZoom()
         {
-            zoomSlide.value = Mathf.Clamp(zoomSlide.value, 5, 18);
+            // give map time to load before giving data
+            rayCastScript.DelayLoad();
+
+            _mapVisualizer.Destroy();
+            
             _tileProvider.UpdateZoom(zoomSlide.value);
             // Debug.Log(_mapCenterLatitudeLongitude + " zoom");
-            Zoom = (int)zoomSlide.value;
-            Setup();
+
+            Setup((int)zoomSlide.value);
             // Debug.Log(_mapCenterLatitudeLongitude + " setup");
-            
+
         }
 
-        public void SetCenter(Vector2d coords)
+        // shift center of map when user pans
+        public void ShiftCenter(Vector2d shift)
         {
-            _mapCenterLatitudeLongitude = coords;
-            // Debug.Log(_mapCenterMercator);
-            Debug.Log(_mapCenterLatitudeLongitude + " center");
+            CenterLatitudeLongitude = shift;
         }
 
+        // add tile to map
         void TileProvider_OnTileAdded(UnwrappedTileId tileId)
         {
             _mapVisualizer.LoadTile(tileId);
         }
 
+        // remove tile from map
         void TileProvider_OnTileRemoved(UnwrappedTileId tileId)
         {
             _mapVisualizer.DisposeTile(tileId);
