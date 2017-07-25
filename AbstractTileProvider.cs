@@ -21,8 +21,9 @@
 			OnInitialized();
 		}
 
-        protected void AddTile(UnwrappedTileId tile)
+		protected void AddTile(UnwrappedTileId tile)
 		{
+
 			if (_activeTiles.Contains(tile))
 			{
 				return;
