@@ -22,7 +22,9 @@ namespace Mapbox.Unity.Map
 		int _disposeBuffer; // where to remove tiles
 
         [SerializeField]
-        float _updateInterval; // for coroutine
+        float _updateInterval; // how often to try to generate tiles
+
+        float _timeElapsed;
 
         // used to figure out center tile
 		Plane _groundPlane;
@@ -43,7 +45,7 @@ namespace Mapbox.Unity.Map
 		{
 			_groundPlane = new Plane(Vector3.up, Mapbox.Unity.Constants.Math.Vector3Zero);
 			_viewportTarget = new Vector3(0.5f, 0.5f, 0);
-            StartCoroutine(UpdateCo());
+            _timeElapsed = 0;
 
 		}
 
@@ -65,10 +67,12 @@ namespace Mapbox.Unity.Map
         }
 
         // updates tile rendering at regular intervals
-		IEnumerator UpdateCo()
+		void Update()
 		{
-            while (true)
+            _timeElapsed += Time.deltaTime;
+            if (_timeElapsed >= _updateInterval)
             {
+                _timeElapsed = 0; // reset time
                 // what the camera is looking at, center of screen
                 _ray = _camera.ViewportPointToRay(_viewportTarget);
                
@@ -98,7 +102,6 @@ namespace Mapbox.Unity.Map
                     }
                     
                 }
-                yield return new WaitForSeconds(_updateInterval);
             }
 		}
 

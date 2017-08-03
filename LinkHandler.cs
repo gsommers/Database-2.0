@@ -411,11 +411,17 @@ namespace TMPro.Examples
             if (linkIndex != -1)
             {
                 TMP_LinkInfo linkInfo = m_TextMeshPro.textInfo.linkInfo[linkIndex];
+
                 // open the text for a tree
                 if (linkInfo.GetLinkID() == "id_tree")
                 {
                     treeReader.Read(linkInfo.GetLinkText());
                 }
+                else // stone
+                {
+                    treeReader.ReadStone(linkInfo.GetLinkID());
+                }
+
 
             }
             #endregion

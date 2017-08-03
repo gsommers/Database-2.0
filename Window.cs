@@ -15,7 +15,7 @@ public class Window : MonoBehaviour {
 
             // reset scroll window to top
             ScrollRect scroll = gameObject.GetComponentInChildren<ScrollRect>();
-            if (scroll != null)
+            if (scroll != null) 
                 scroll.verticalNormalizedPosition = 1;
         }
         else if (button.CompareTo("close") == 0)

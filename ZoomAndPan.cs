@@ -180,7 +180,7 @@
 
         void Setup(int zoom)
         {
-            _mapVisualizer.Initialize(this, _fileSouce);
+            
 
             Zoom = zoom;
             // set center
@@ -192,6 +192,7 @@
             Root.localScale = Vector3.one * _worldRelativeScale;
 
             // where the tiles come from
+            _mapVisualizer.Initialize(this, _fileSouce);
             _tileProvider.Initialize(this);
 
             // this is a delegate
@@ -224,8 +225,6 @@
         {
             // give map time to load before giving data
             rayCastScript.DelayLoad();
-
-            _mapVisualizer.Destroy();
             
             _tileProvider.UpdateZoom(zoomSlide.value);
             // Debug.Log(_mapCenterLatitudeLongitude + " zoom");
