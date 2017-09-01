@@ -12,12 +12,12 @@ namespace TMPro.Examples
     public class LinkHandler : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler, IPointerUpHandler
     {
         public RectTransform TextPopup_Prefab_01; // link popup box
-        
+
         private RectTransform m_TextPopup_RectTransform;
         private TextMeshProUGUI m_TextPopup_TMPComponent;
         // private const string k_WordText = "Word Index: <#ffff00>";
 
-        public TreeDictionary treeReader; // holds info about tree species
+        public TreeDictionary treeReader; // holds info about tree species and other materials
 
         private TextMeshProUGUI m_TextMeshPro;
         private Canvas m_Canvas;
@@ -49,7 +49,7 @@ namespace TMPro.Examples
             m_TextPopup_RectTransform = Instantiate(TextPopup_Prefab_01) as RectTransform;
             m_TextPopup_RectTransform.SetParent(m_Canvas.transform, false);
             m_TextPopup_TMPComponent = m_TextPopup_RectTransform.GetComponentInChildren<TextMeshProUGUI>();
-            DisableLink();    
+            DisableLink();
         }
 
         public void DisableLink()
@@ -266,7 +266,7 @@ namespace TMPro.Examples
                     Vector3 worldPointInRectangle = Vector3.zero;
                     RectTransformUtility.ScreenPointToWorldPointInRectangle(m_TextMeshPro.rectTransform, Input.mousePosition, m_Camera, out worldPointInRectangle);
 
-                    
+
                     /*string linkName = linkInfo.GetLinkID();
                     if (linkName.Equals("id_source")) // hyperlink
                     {
@@ -411,15 +411,18 @@ namespace TMPro.Examples
             if (linkIndex != -1)
             {
                 TMP_LinkInfo linkInfo = m_TextMeshPro.textInfo.linkInfo[linkIndex];
-
-                // open the text for a tree
-                if (linkInfo.GetLinkID() == "id_tree")
+                string linkName = linkInfo.GetLinkID();
+                switch (linkName)
                 {
-                    treeReader.Read(linkInfo.GetLinkText());
-                }
-                else // stone
-                {
-                    treeReader.ReadStone(linkInfo.GetLinkID());
+                    case "id_tree": // species of tree
+                        treeReader.Read(linkInfo.GetLinkText());
+                        break;
+                    case "id_quarry": // type of stone
+                        treeReader.ReadQuarry(linkInfo.GetLinkText());
+                        break;
+                    default: // underlying geology
+                        treeReader.ReadStone(linkInfo.GetLinkID());
+                        break;
                 }
 
 

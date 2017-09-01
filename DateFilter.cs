@@ -27,7 +27,7 @@ public class Date: IComparable<Date>
         if (space < 0) // should never occur, since I'm inputting it
             throw new FormatException("Problem with the date...");
         Int32.TryParse(date.Substring(0, space), out year);
-        era = (date.Substring(space + 1) == "CE");
+        era = (date.Substring(space + 1).ToLower() == "ce");
     }
 
     // set BCE (false) or CE (true)
@@ -54,6 +54,11 @@ public class Date: IComparable<Date>
         else
             return -1;
     }
+
+    public override string ToString()
+    {
+        return year + " " + (era ? "CE" : "BCE");
+    }
 }
 
 // Handles input on the date panel
@@ -65,6 +70,7 @@ public class DateFilter : MonoBehaviour {
     public string earliest, latest; // time span of this database
     public Color errorColor; // probably red
     public Toggle startAD, endAD; // radio buttons for era
+    public Raycasting rayCastScript; // send dates to here
 
     private void Start()
     {
@@ -125,6 +131,7 @@ public class DateFilter : MonoBehaviour {
            // no error
             case "neither": endText.color = originalColor;
                 startText.color = originalColor;
+                rayCastScript.FilterDates(start, end);
                 break;
         }
     }

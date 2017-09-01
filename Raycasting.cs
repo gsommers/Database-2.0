@@ -1,4 +1,5 @@
 ﻿using Mapbox.Unity.Map;
+using Mapbox.Unity.MeshGeneration.Components;
 using Mapbox.Unity.MeshGeneration.Data;
 using Mapbox.Unity.Utilities;
 using Mapbox.Utils;
@@ -23,7 +24,7 @@ public class Raycasting : MonoBehaviour
 
     public TextMeshProUGUI materialsList; // displays which species are
     public GameObject materialsPanel; // at this location
-    public Window materialsWindow; // scroll view of materialsPanel
+    public FlipPage pageSetter; // controls what page of the list is shown
     public GameObject infoPanel; // profile of selected species/region
     public GameObject mapPanel; // map of selected species
     public GameObject geoCam; // map of geology
@@ -48,6 +49,8 @@ public class Raycasting : MonoBehaviour
     private SortedDictionary<int, List<string>> display;
     private Dictionary<string, double> found;
     Vector2d point; // where the collision is
+
+    private Date start, end; // used to filter out stones
 
     private void Start()
     {
@@ -96,7 +99,6 @@ public class Raycasting : MonoBehaviour
                 infoPanel.SetActive(false);
                 mapPanel.SetActive(false);
                 geoCam.SetActive(false);
-                materialsWindow.SetVisibility("open"); // resets scroll position
 
                 // detects if mouse clicks intersects with any tileset
                 ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -109,17 +111,22 @@ public class Raycasting : MonoBehaviour
 
 
                 // assuming no materials selected
-                materialsList.text = "\n<size=30pt>No materials selected. Please select stone and/or timber to retrieve data.</size>";
+                materialsList.text = "\n<size=25pt>No materials selected. Please select stone and/or timber to retrieve data.</size>";
 
                 // layermask - which materials to display? 
                 if (timber.isOn || stone.isOn)
                 {
                     materialsList.text = ""; // reset text
                     if (timber.isOn)
-                        ShowList(8);
+                        ShowList(8); // timber layer
                     if (stone.isOn)
-                        ShowList(9);
+                    {
+                        ShowList(9); // geology layer
+                        ShowList(11); // quarry layer
+                    }
                 }
+
+                pageSetter.SetPages(); // initialize page formatting of materials panel
 
             }
         }
@@ -131,6 +138,25 @@ public class Raycasting : MonoBehaviour
         }
     }
 
+    // called when user submits valid filter dates
+    // used to filter out stones that were quarried during different time periods
+    public void FilterDates(Date startYear, Date endYear)
+    {
+        start = startYear;
+        end = endYear;
+        Debug.Log("Dates set");
+    }
+
+    /* checks whether this material was used during the filter dates
+     * @return true if recorded use falls outside these dates
+     */
+    private bool OutsideDates(FeatureBehaviour fb)
+    {
+        return (fb.endDate != null && start != null && start.CompareTo(fb.endDate) > 0) // material use predates filtered era
+            || (fb.startDate != null && end != null && end.CompareTo(fb.startDate) < 0); // material use began after filtered era
+    }
+
+    // does a spherecast to detect materials in surrounding regions and displays them on panel
     private void ShowList(int layerMask)
     {
         RaycastHit[] hits = Physics.SphereCastAll(ray, radiusSlide.value * 1000 * map.WorldRelativeScale, 120, 1 << layerMask);
@@ -144,7 +170,7 @@ public class Raycasting : MonoBehaviour
         if (hits.Length == 0)
         {
             if (loading) // something might be here, it just hasn't loaded
-                materialsList.text = "\n<size=30pt>Map is loading. Please click again when this panel closes.</size>";
+                materialsList.text = "\n<size=25pt>Map is loading. Please click again when this panel closes.</size>";
             else // nothing is here
                 SetMissingText(LayerMask.LayerToName(layerMask));
             // Debug.Log("Nothing here...");
@@ -164,7 +190,18 @@ public class Raycasting : MonoBehaviour
                 if (d < radiusSlide.value)
                 {
                     // GetComponent is expensive. Better way?
-                    string name = hit.transform.gameObject.GetComponent<Mapbox.Unity.MeshGeneration.Components.FeatureBehaviour>().DataString;
+                    FeatureBehaviour fb = hit.transform.gameObject.GetComponent<FeatureBehaviour>();
+                    string name = fb.DataString;
+                    if (name == null)
+                        Debug.Log(hit.transform.name);
+                    if (layerMask == 11) // quarry
+                    {
+                        if (OutsideDates(fb)) // don't include this material in the list
+                        {
+                            Debug.Log("Bad");
+                            continue;
+                        }
+                    }
 
                     // already found a collision with this shapefile; keep the closer one
                     if (found.ContainsKey(name))
@@ -216,26 +253,32 @@ public class Raycasting : MonoBehaviour
                     // category label
                     text.Append(string.Format("\n<i>Within a {0}-km radius:</i>\n", pair.Key));
 
-                    if (layerMask == 8) // species list for wood
+                    switch (layerMask) // text differs depending on type of material
                     {
+                        case 8: // species list for wood
                         foreach (string species in pair.Value)
                         {
 
                             text.Append("<size=90%><link=\"id_tree\"><color=\"blue\"><u>" + species + "</color></u></link></size>\n");
                         }
+                            break;
 
-                    }
-                    else // stone
-                    {
+                        case 9: // underlying geology
                         foreach (string id in pair.Value)
                         {
                             text.Append("<size=90%><link=\"" + id + "\"><color=\"blue\"><u>Find stone</color></u></link></size>\n");
                         }
-
+                            break;
+                        case 11: // stone quarries
+                        foreach (string type in pair.Value)
+                            {
+                                text.Append("<size=90%><link=\"id_quarry\"><color=\"blue\"><u>" + type + "</color></u></link></size>\n");
+                            }
+                            break;
                     }
 
                 }
-                SetListText(layerMask, text.ToString());
+                SetListText(layerMask, text.ToString()); // display text
             }
 
         }
@@ -253,7 +296,7 @@ public class Raycasting : MonoBehaviour
     // this displays when there are no species in the region
     private void SetMissingText(string layerName)
     {
-        materialsList.text += String.Format("<size=30pt>\nNo {0} found here. Click somewhere else or broaden your search.</size>\n", layerName);
+        materialsList.text += String.Format("<size=25pt>\nNo {0} found here. Click somewhere else or broaden your search.</size>\n", layerName);
     }
 
     // groups distances into intervals for display
