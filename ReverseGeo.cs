@@ -25,6 +25,7 @@ namespace Mapbox.Examples.Playground
         string infoText;
         void Awake()
         {
+            Debug.Log(_searchLocation.ToString());
             _searchLocation.OnGeocoderResponse += SearchLocation_OnGeocoderResponse;
         }
 
